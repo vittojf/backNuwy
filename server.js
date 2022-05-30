@@ -7,16 +7,21 @@ const nodemailer = require("nodemailer");
 const smtpTransport = require("nodemailer-smtp-transport");
 const hbs = require("nodemailer-express-handlebars");
 const path = require("path");
-const {google} =require("googleapis")
+const { google } = require("googleapis");
 const multer = require("multer");
 const fs = require("fs");
+const sendMail = require("./gmail");
 
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 
-app.use(cors({
-origin:"*"
-}));
+app.use(
+  cors({
+    origin: "*",
+  })
+);
+
+/*
 
 const oAuth2Client = new google.auth.OAuth2(process.env.CLIENT_ID,process.env.CLIENT_SECRET,process.env.REDIRECT_URI)
 oAuth2Client.setCredentials({refresh_token:process.env.REFRESH_TOKEN})
@@ -55,7 +60,7 @@ transport.verify(function (error, success) {
     console.log("Server is ready to take our messages");
   }
 });
-
+*/
 const storage = multer.diskStorage({
   destination: path.join(__dirname, "./public_html/", "uploads"),
   filename: function (req, file, cb) {
@@ -92,7 +97,6 @@ app.post("/imageupload", async (req, res, next) => {
   }
 });
 
-
 app.post("/send-mail", cors(), async (req, res, next) => {
   let body = req.body;
 
@@ -104,16 +108,17 @@ app.post("/send-mail", cors(), async (req, res, next) => {
       template: "index",
       context: body,
     };
+    //res.status(200).send("correo enviado")
 
-    await transport.sendMail(mailOptions, (err, data) => {
-      if (err) {
-        res.status(500);
-      }else{
-        res.status(200).send("correo enviado")
-      }
-    });
+    await sendMail(mailOptions)
+      .then((resMail) => {
+        return res.status(200).send("correo enviado", resMail);
+      })
+      .catch((err) => {
+        return res.status(500).json(err);
+      });
   } catch (err) {
-    res.json(err);
+    return res.status(500).json(err);
   }
 
   try {
@@ -135,6 +140,20 @@ app.post("/send-mail", cors(), async (req, res, next) => {
       ],
     };
 
+    const resMessage = await sendMail(mailOptionsNuwy)
+      .then((resMail) => {
+        fs.unlinkSync(imagePath);
+        return res.status(200).send("correo enviado", resMail);
+      })
+      .catch((err) => {
+        fs.unlinkSync(imagePath);
+        res.status(500);
+        return res.status(500).json(err);
+      });
+
+    return resMessage;
+
+    /*
     await transport.sendMail(mailOptionsNuwy, (err, data) => {
       if (err) {
         fs.unlinkSync(imagePath);
@@ -144,15 +163,15 @@ app.post("/send-mail", cors(), async (req, res, next) => {
         fs.unlinkSync(imagePath);
         return res.status(200).send("Correo Enviado!");
       }
-    });
+    });*/
   } catch (err) {
     res.json(err);
   }
 });
+
 app.post("/send-mail-contact", async (req, res, next) => {
   try {
     let mailOptions = {
-      from: process.env.EMAIL,
       to: process.env.EMAIL,
       subject: `Han realizado una Pregunta`,
       html: `<h5 style="font-size:15px">Recibiste un mensaje de:</h5>
@@ -163,22 +182,55 @@ app.post("/send-mail-contact", async (req, res, next) => {
    
       <p style="font-size:15px"><b>Message:</b> ${req.body.message}</p>`,
     };
-    await transport.sendMail(mailOptions, (err, data) => {
-      if (err) {
-        res.status(500);
-  
-      } else {
-        return res.status(200).send("Correo Enviado!");
-      }
-    });
+    const resMessage = await sendMail(mailOptions)
+      .then((resMail) => {
+        console.log(resMail)
+        return res.status(200).send("correo enviado");
+      })
+      .catch((err) => {
+       console.log(err)
+        return res.status(500).json(err);
+      });
+
+    return resMessage;
   } catch (error) {
     res.json(error);
   }
 });
 
+app.post("/send-mail-prueba", async (req, res, next) => {
+  try {
+    let mailOptions = {
+      to: 'vittodeveloper@gmail.com',
+      subject: `Han realizado una Pregunta`,
+      html: `<h5 style="font-size:15px">Recibiste un mensaje de:</h5>
+    
+     <p style="font-size:15px"><b> Email :</b> qq</p>
+     
+      <p style="font-size:15px"><b> Name:</b> $qq</p>
+   
+      <p style="font-size:15px"><b>Message:</b> $qq</p>`,
+    };
+    const resMessage = await sendMail(mailOptions)
+      .then((resMail) => {
+        console.log(resMail)
+        return res.status(200).send("correo enviado");
+      })
+      .catch((err) => {
+       console.log(err)
+        return res.status(500).json(err);
+      });
+
+    return resMessage;
+  } catch (error) {
+    res.json(error);
+  }
+});
+
+
 app.listen(process.env.PORT || 8800, (req, res) => {
   console.log("server activo");
-}); 
+});
 
 //
 /*
